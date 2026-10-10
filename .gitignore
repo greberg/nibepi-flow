@@ -1,3 +1,6 @@
 *
 !.gitignore
 !flows.json
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml

@@ -1,0 +1,35 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: flows.json is valid
+        # Parses, has unique ids, and every wire and server reference points
+        # at a node that exists - the usual damage from a bad merge or a
+        # hand edit.
+        run: |
+          node - <<'JS'
+          const flows = JSON.parse(require('fs').readFileSync('flows.json', 'utf8'));
+          const ids = new Map();
+          const problems = [];
+          for (const n of flows) {
+            if (ids.has(n.id)) problems.push(`duplicate id ${n.id}`);
+            ids.set(n.id, n);
+          }
+          for (const n of flows) {
+            for (const port of n.wires || []) for (const to of port)
+              if (!ids.has(to)) problems.push(`${n.type} ${n.id} wires to missing ${to}`);
+            if (n.server && !ids.has(n.server)) problems.push(`${n.type} ${n.id} uses missing server ${n.server}`);
+          }
+          console.log(`${flows.length} nodes checked`);
+          if (problems.length) { console.error(problems.join('\n')); process.exit(1); }
+          JS
